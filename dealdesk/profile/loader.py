@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import csv
+import os
+import sys
 from decimal import Decimal
 from pathlib import Path
 from typing import Union
@@ -11,7 +13,16 @@ import yaml
 from ..money import D
 from .schema import BusinessProfile
 
-PROFILES_DIR = Path(__file__).resolve().parents[2] / "profiles"
+PROFILES_DIR = Path(__file__).resolve().parents[2] / "profiles"  # the repository's profiles/ folder
+
+
+def profile_dirs() -> list[Path]:
+    """Where named profiles are looked up, in order."""
+    dirs = []
+    if os.environ.get("DEALDESK_PROFILES"):
+        dirs.append(Path(os.environ["DEALDESK_PROFILES"]))
+    dirs += [Path.cwd() / "profiles", PROFILES_DIR, Path(sys.prefix) / "share" / "dealdesk" / "profiles"]
+    return dirs
 
 
 def _read_matrix(path: Path) -> list[dict]:
@@ -37,10 +48,11 @@ def resolve_profile_path(name_or_path: Union[str, Path]) -> Path:
     p = Path(name_or_path)
     if p.exists():
         return p
-    for cand in (PROFILES_DIR / f"{name_or_path}.yaml", PROFILES_DIR / f"{name_or_path}.xlsx", PROFILES_DIR / str(name_or_path)):
-        if cand.exists():
-            return cand
-    raise FileNotFoundError(f"no profile '{name_or_path}' (looked in {PROFILES_DIR})")
+    for d in profile_dirs():
+        for cand in (d / f"{name_or_path}.yaml", d / f"{name_or_path}.xlsx", d / str(name_or_path)):
+            if cand.exists():
+                return cand
+    raise FileNotFoundError(f"no profile '{name_or_path}' (looked in {', '.join(str(d) for d in profile_dirs())})")
 
 
 def load_profile_dict(data: dict, base_dir: Path | None = None) -> BusinessProfile:

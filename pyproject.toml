@@ -23,3 +23,6 @@ dealdesk = "dealdesk.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["dealdesk*"]
+
+[tool.setuptools.data-files]
+"share/dealdesk/profiles" = ["profiles/*.yaml", "profiles/*.csv", "profiles/*.xlsx"]
