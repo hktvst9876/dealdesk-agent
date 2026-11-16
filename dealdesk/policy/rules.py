@@ -78,6 +78,8 @@ def perk_eligible(profile: BusinessProfile, perk: Perk, *, party_size: int, occa
 
 def _at(day: datetime, hhmm: str) -> datetime:
     h, m = (int(x) for x in hhmm.split(":"))
+    if h >= 24:  # "24:00" = midnight at the end of the day
+        return day.replace(hour=0, minute=m, second=0, microsecond=0) + timedelta(days=1)
     return day.replace(hour=h, minute=m, second=0, microsecond=0)
 
 

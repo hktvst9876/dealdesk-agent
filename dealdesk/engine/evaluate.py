@@ -136,6 +136,8 @@ def compute(profile: BusinessProfile, ctx: DealContext, cand: Candidate) -> Figu
         if threshold is not None:
             revenue_core = max(revenue_core, threshold)
         price_quoted = floor * (ONE - discount) if discount_on != "bill" else floor
+        if threshold is not None:
+            price_quoted = max(price_quoted, threshold)
         cogs = cogs_pct * revenue_core
         service = D(eco.service_cost_per_guest) * n
         byo = D(eco.byo_displaced_margin_per_bottle) * ctx.byo_bottles
@@ -387,7 +389,9 @@ def evaluate_offers(profile: BusinessProfile, ctx: DealContext, candidates: list
             t = perk.tier_for_qty(cl.qty)
             tier = _max_tier(tier, t if t else "owner")
         fig.authority_required = tier
-        checks["within_authority"] = TIER_ORDER[tier] <= sender_rank and checks["within_cap"]
+        # The cap binds the front line; a manager or owner approving explicitly may go past it
+        # up to their own authority (the tier above already reflects the cumulative figure).
+        checks["within_authority"] = TIER_ORDER[tier] <= sender_rank and (checks["within_cap"] or sender_rank >= TIER_ORDER["manager"])
         fig.checks = checks
 
         e = _fmt(fig.expected_contribution)

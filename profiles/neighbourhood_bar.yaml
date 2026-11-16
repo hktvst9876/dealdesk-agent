@@ -27,6 +27,7 @@ sessions:
 inventory:
   - id: table
     label: table for 6
+    aliases: [tables, table]
     units: 10
     guests_per_unit: 6
     pricing: minimum_spend
@@ -61,7 +62,8 @@ perks:
     approval: front_line
     blockers: [price, occasion]
     p_class: perk
-    customer_text: "the sharing platter on us with a S$300 minimum spend for the table"
+    customer_text: "the sharing platter on us"
+    keywords: [platter]
   - id: ipa_round
     label: First round of house IPA
     type: item
@@ -73,6 +75,7 @@ perks:
     blockers: [price, occasion]
     p_class: perk
     customer_text: "the first round of our house IPA on us"
+    keywords: [ipa, first round, free round, round on us]
   - id: dessert_round
     label: Dessert of the day for the table
     type: item
@@ -84,6 +87,7 @@ perks:
     blockers: [occasion, price]
     p_class: perk
     customer_text: "dessert of the day on the house for everyone"
+    keywords: [dessert]
   - id: happy_hour_bill
     label: Happy-hour prices on the whole bill
     type: price_discount
@@ -94,6 +98,7 @@ perks:
     blockers: [price]
     p_class: price
     customer_text: "happy-hour prices (15% off) on the whole bill"
+    keywords: [happy hour, happy-hour, discount, "% off"]
   - id: prosecco_bottle
     label: Bottle of prosecco
     type: item
@@ -103,6 +108,7 @@ perks:
     blockers: [occasion]
     p_class: perk
     customer_text: "a bottle of prosecco to celebrate"
+    keywords: [prosecco, bubbly]
 
 policy:
   min_contribution: 60

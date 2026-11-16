@@ -37,6 +37,7 @@ sessions:
 inventory:
   - id: beachfront_bed
     label: beachfront bed
+    aliases: [beachfront beds, beach beds, beds, bed]
     units: 8                       # estimate: replace with actual
     estimate: true
     guests_per_unit: 6
@@ -51,6 +52,7 @@ inventory:
       forecast_utilisation: { weekday: 0.35, weekend_am: 0.6, weekend_pm: 0.75, weekend_eve: 0.5 }
   - id: beanbag_section
     label: bean bag section
+    aliases: [bean bag section, bean bags, beanbags, bean bag, beanbag]
     units: 1
     guests_per_unit: 8
     outdoor: true
@@ -62,6 +64,7 @@ inventory:
       forecast_utilisation: { weekday: 0.35, weekend_am: 0.6, weekend_pm: 0.75, weekend_eve: 0.5 }
   - id: vip_area
     label: VIP area
+    aliases: [vip area, vip room, vip]
     units: 1
     guests_per_unit: 20
     pricing: minimum_spend
@@ -98,7 +101,8 @@ perks:
     blockers: [occasion, price]
     p_class: perk
     customer_text: "a birthday cake on the house"
-    condition: "order by 12:00 on the day"
+    keywords: [cake]
+    condition: "confirm today"
   - id: welcome_drink
     label: Welcome drink, house pour
     type: item
@@ -112,6 +116,7 @@ perks:
     blockers: [occasion, price]
     p_class: perk
     customer_text: "a welcome drink (house pour) each"
+    keywords: [welcome drink]
   - id: corkage_waiver
     label: Corkage waiver
     type: fee_waiver
@@ -122,6 +127,8 @@ perks:
     blockers: [fee]
     p_class: fee_concession
     customer_text: "corkage waived on one bottle"
+    condition: "confirm today"
+    keywords: [waive corkage, waive the corkage, corkage waived, corkage waiver, no corkage, corkage-free, corkage free, waive the 50, waive it]
   - id: floor_discount
     label: 15% off the minimum spend
     type: price_discount
@@ -132,6 +139,8 @@ perks:
     blockers: [price]
     p_class: price
     customer_text: "15% off the minimum spend"
+    condition: "confirm today"
+    keywords: [discount, "% off", percent off]
   - id: vip_group_rate
     label: VIP area group package
     type: package
@@ -143,7 +152,8 @@ perks:
     approval: front_line
     blockers: [fit, occasion, risk]
     p_class: alternative
-    customer_text: "the private VIP area for your group at a S$1,200 minimum spend, all toward food and drinks"
+    customer_text: "your own private space with dedicated service, ideal if you want privacy or have older guests"
+    keywords: [vip]
   - id: vip_upgrade_bed_tier
     label: VIP upgrade at bed-tier floor
     type: package
@@ -156,6 +166,7 @@ perks:
     blockers: [fit, occasion]
     p_class: perk
     customer_text: "an upgrade to the private VIP area at the same minimum spend"
+    keywords: [vip upgrade, upgrade to vip, upgrade to the vip]
   - id: prosecco
     label: Complimentary prosecco
     type: item
@@ -167,6 +178,7 @@ perks:
     blockers: [occasion]
     p_class: perk
     customer_text: "a bottle of prosecco on the house"
+    keywords: [prosecco, bubbly]
   - id: session_extension
     label: Session extension +1h
     type: extension
@@ -178,6 +190,7 @@ perks:
     blockers: [timing]
     p_class: perk
     customer_text: "an extra hour at no charge"
+    keywords: [extra hour, extend, extension]
   - id: wet_weather_hold
     label: Indoor wet-weather hold
     type: terms
@@ -189,6 +202,7 @@ perks:
     blockers: [risk]
     p_class: terms
     customer_text: "an indoor space held for you in case of rain"
+    keywords: [indoor hold, indoor space held, indoor backup, held indoors]
   - id: deposit_instead_of_card
     label: Deposit instead of card-on-file
     type: terms
@@ -198,6 +212,7 @@ perks:
     blockers: [process, risk]
     p_class: terms
     customer_text: "a deposit instead of a card on file, if you prefer"
+    keywords: [deposit instead, instead of a card, instead of card]
 
 policy:
   min_contribution: 400
@@ -207,6 +222,8 @@ policy:
   hold: { default_minutes: 120, evening_enquiry_after: "18:00", evening_enquiry_until: "10:00", never_within_hours_of_session: 3 }
   p_resell_matrix: salt_deal_policy.csv     # placeholder until the venue's own no-sale data exists
   p_book_defaults: { standard: 0.40, fee_concession: 0.50, perk: 0.55, price: 0.55, alternative: 0.35, terms: 0.45, clarify: 0.40 }
+  # A clear answer to a seating, weather or process worry lifts the close rate like a terms concession, at no cost.
+  p_book_by_blocker: { fit: { clarify: 0.45 }, risk: { clarify: 0.45 }, process: { clarify: 0.45 } }
   escalation_minutes: 30
   max_alternatives: 2
 
@@ -219,7 +236,7 @@ finance:
   bounds: {}
 
 staff:
-  - { name: Mei, tier: front_line }
+  - { name: Aisha, tier: front_line }
   - { name: Daniel, tier: manager }
   - { name: Owner, tier: owner, on_duty: false }
 

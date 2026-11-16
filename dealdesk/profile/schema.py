@@ -148,6 +148,7 @@ class Resource(Strict):
     id: str
     label: str
     kind: Literal["unit", "hours", "unlimited"] = "unit"
+    aliases: list[str] = Field(default_factory=list)  # words customers use for it ("beds", "bean bags")
     units: int = 1
     unit_ids: Optional[list[str]] = None
     guests_per_unit: Optional[int] = None
@@ -181,6 +182,7 @@ class Product(Strict):
     """A stocked item (drinks, food, retail goods). Drives the stock opportunity-cost model."""
     id: str
     label: str
+    aliases: list[str] = Field(default_factory=list)  # words customers use ("house red", "gin")
     category: str = "general"
     price: Decimal
     unit_cost: Decimal
@@ -285,7 +287,11 @@ class Perk(Strict):
     p_class: PClass = "perk"
     customer_text: str = ""
     condition: Optional[str] = None
+    keywords: list[str] = Field(default_factory=list)  # words that mean "this perk" in a message or a draft
     estimate: bool = False
+
+    def mention_keywords(self) -> list[str]:
+        return [k.lower() for k in self.keywords] or [self.label.lower()]
 
     def unit_true_cost(self) -> Decimal:
         return D(self.cost) + D(self.displaced_margin)

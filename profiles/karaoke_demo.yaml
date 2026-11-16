@@ -20,6 +20,7 @@ sessions:
 inventory:
   - id: karaoke_room
     label: private room
+    aliases: [rooms, room]
     units: 2
     unit_ids: ["Room A", "Room B"]
     guests_per_unit: 20

@@ -25,10 +25,10 @@ inventory:
     overtime_premium_per_hour: 30
 
 products:
-  - { id: cut_blowdry, label: "cut and blow-dry", category: service, price: 85, unit_cost: 21, hours: 1.0, resource_id: stylist_time }
-  - { id: colour, label: "colour", category: service, price: 160, unit_cost: 48, hours: 2.0, resource_id: stylist_time }
-  - { id: bridal_updo, label: "bridal up-do", category: service, price: 120, unit_cost: 30, hours: 1.25, resource_id: stylist_time }
-  - { id: treatment_mask, label: "hair mask treatment", category: service, price: 35, unit_cost: 6, hours: 0.25, resource_id: stylist_time }
+  - { id: cut_blowdry, aliases: [cut and blow-dry, cut and blowdry, blow-dries, blow-dry, blow dries, blow dry, blowdries, blowdry, cuts], label: "cut and blow-dry", category: service, price: 85, unit_cost: 21, hours: 1.0, resource_id: stylist_time }
+  - { id: colour, aliases: [colour, color, colours], label: "colour", category: service, price: 160, unit_cost: 48, hours: 2.0, resource_id: stylist_time }
+  - { id: bridal_updo, aliases: [bridal up-do, bridal updo, up-do, updo], label: "bridal up-do", category: service, price: 120, unit_cost: 30, hours: 1.25, resource_id: stylist_time }
+  - { id: treatment_mask, aliases: [hair mask, mask], label: "hair mask treatment", category: service, price: 35, unit_cost: 6, hours: 0.25, resource_id: stylist_time }
 
 fees:
   late_cancellation: { amount: 50, per: booking, charged: on_event, label: late cancellation }
@@ -47,6 +47,7 @@ perks:
     blockers: [occasion, price]
     p_class: perk
     customer_text: "a hair mask treatment for everyone in the party"
+    keywords: [mask, treatment]
   - id: group_15
     label: 15% group discount
     type: price_discount
@@ -57,6 +58,7 @@ perks:
     blockers: [price]
     p_class: price
     customer_text: "15% off for the group"
+    keywords: [discount, "% off"]
 
 policy:
   min_contribution: 120

@@ -13,12 +13,12 @@ business:
   tone: "Professional and brief. State the order, the price, the terms and the next step."
 
 products:
-  - { id: house_red_case, label: "case of house red (12)", category: wine, price: 180, unit_cost: 108,
+  - { id: house_red_case, aliases: [house red, red wine, reds], label: "case of house red (12)", category: wine, price: 180, unit_cost: 108,
       on_hand: 200, daily_velocity: 9, days_to_restock: 14 }
-  - { id: premium_gin_case, label: "case of premium gin (6)", category: spirits, price: 420, unit_cost: 280,
+  - { id: premium_gin_case, aliases: [premium gin, gin], label: "case of premium gin (6)", category: spirits, price: 420, unit_cost: 280,
       on_hand: 6, daily_velocity: 1, days_to_restock: 10 }
-  - { id: prosecco_case, label: "case of prosecco (6)", category: wine, price: 160, unit_cost: 90 }
-  - { id: craft_keg_short_date, label: "short-dated craft beer keg", category: beer, price: 210, unit_cost: 120,
+  - { id: prosecco_case, aliases: [prosecco], label: "case of prosecco (6)", category: wine, price: 160, unit_cost: 90 }
+  - { id: craft_keg_short_date, aliases: [keg, kegs], label: "short-dated craft beer keg", category: beer, price: 210, unit_cost: 120,
       on_hand: 12, daily_velocity: 0.3, replenishable: false, expiry_days: 20, salvage_value: 40 }
 
 fees:
@@ -40,6 +40,7 @@ perks:
     blockers: [price]
     p_class: price
     customer_text: "5% off the order"
+    keywords: ["5%", discount]
   - id: volume_10
     label: 10% volume discount
     type: price_discount
@@ -50,6 +51,7 @@ perks:
     blockers: [price]
     p_class: price
     customer_text: "10% off the order"
+    keywords: ["10%", discount]
   - id: free_delivery
     label: Free delivery
     type: fee_waiver
@@ -58,6 +60,7 @@ perks:
     blockers: [fee, price]
     p_class: fee_concession
     customer_text: "free delivery"
+    keywords: [free delivery, delivery free, waive delivery]
   - id: keg_on_us
     label: Short-dated keg on us
     type: item
@@ -67,6 +70,7 @@ perks:
     blockers: [price]
     p_class: perk
     customer_text: "a craft beer keg on us (best before in 20 days)"
+    keywords: [keg]
   - id: credit_14
     label: 14-day payment terms
     type: terms
@@ -75,6 +79,7 @@ perks:
     blockers: [process, price]
     p_class: terms
     customer_text: "14 days to pay"
+    keywords: [14 days, 14-day]
   - id: credit_30
     label: 30-day payment terms
     type: terms
@@ -83,6 +88,7 @@ perks:
     blockers: [process, price]
     p_class: terms
     customer_text: "30 days to pay"
+    keywords: [30 days, 30-day]
 
 policy:
   min_contribution: 150
