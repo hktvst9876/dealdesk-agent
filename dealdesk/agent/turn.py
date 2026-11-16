@@ -339,7 +339,11 @@ class Agent:
             return td
         cur.sendable, cur.decision = True, "offer_approved_concession"
         e = lambda f: f.expected_contribution
-        with_req = [f for f in td.ranked if set(f.candidate.new_concessions) & requested_ids]
+        cur_terms = {(c.perk_id, c.qty) for c in cur.candidate.concessions}
+        adds_something = lambda f: {(c.perk_id, c.qty) for c in f.candidate.concessions} != cur_terms
+        with_req = [f for f in td.ranked if set(f.candidate.new_concessions) & requested_ids and adds_something(f)
+                    and f.candidate.placement == cur.candidate.placement or
+                    (set(f.candidate.new_concessions) & requested_ids and f.kind == "alternative")]
         ok = [f for f in with_req if f.sendable]
         esc = [f for f in with_req if f.escalatable]
         if ok:
@@ -555,7 +559,8 @@ class Agent:
         # Record the offer BEFORE anything is sent (append-only ledger).
         if chosen is not None:
             offer = {"figures": chosen.to_schema(), "candidate": cand_to_dict(chosen.candidate),
-                     "alternative_packages": alt_packages or [], "price_label": brief.main.price_label if brief.main else None}
+                     "alternative_packages": alt_packages or [], "price_label": brief.main.price_label if brief.main else None,
+                     "p_class": chosen.assumptions.get("p_class"), "blocker": brief_blocker(state)}
             self.store.record_offer(conv.id, turn, chosen.offer_id, decision, chosen.label, offer, chosen.conditions,
                                     brief.hold_expiry, "drafted", f"{conv.id}:offer:{turn}", now)
             for pid in chosen.candidate.new_concessions:
@@ -605,7 +610,62 @@ class Agent:
             self.store.save_state(cid, conv.state, now)
         self.store.log(self.b.id, cid, "sent", {"turn": turn, "by": by}, now)
 
+    # ================================================================== staff quick deal (/deal)
+    def quick_deal(self, text: str, now: datetime, staff_tier: str = "front_line") -> str:
+        """Steps 1-5 for a situation a staff member types ('table of 6, quiet Tuesday, want gin').
+        No holds, no customer message: the deal plus the four-line rationale, for staff eyes only."""
+        u = self._understand(text, now, {}, [{"role": "staff", "text": text}])
+        state: dict = {}
+        enq = self._merge(state, u)
+        if not enq.date and any(r.kind == "unit" for r in self.profile.inventory):
+            enq.date = now.date().isoformat()
+        if not (enq.start_time or enq.session_id) and enq.date:
+            enq.start_time = (now + timedelta(hours=1)).strftime("%H:00")
+        blocker = u.blocker if u.blocker != "none" else "price"
+        ctx = self._ctx(enq, blocker, now, None, tier=staff_tier)
+        plan = build_candidates(self.profile, enq, blocker=blocker, requested=[(r.perk_id, r.qty) for r in u.requested
+                                                                                if self.profile.has_perk(r.perk_id)],
+                                asks_about=list(u.asks_about), granted=[], declined=[], cal=ctx.calendar, now=now,
+                                high_demand_hint=self._placement_high_demand(enq, ctx.calendar))
+        if not plan.candidates:
+            return "I need a bit more: who (how many), when, and what they want."
+        td = evaluate_offers(self.profile, ctx, plan.candidates)
+        main, alts = self._present(td)
+        sym = self.b.currency_symbol
+        lines = [f"Situation: {self._summary(enq)} | blocker: {blocker}" + (" | HIGH DEMAND" if main and main.high_demand else "")]
+        if main is None:
+            lines.append("No offer clears policy. Quote the standard terms or suggest another time.")
+        else:
+            ol = offer_line(self.profile, main, enq.party_size, enq.byo_bottles or 0)
+            lines.append(f"Offer: {ol.label} at {ol.price_label}" + (f" + {', '.join(ol.inclusions)}" if ol.inclusions else ""))
+            for a in alts:
+                al = offer_line(self.profile, a, enq.party_size)
+                lines.append(f"Or: {al.label} at {al.price_label}")
+            lines.append(f"Tier needed: {main.authority_required} | contribution {fmt_money(main.contribution, sym)} | "
+                         f"opportunity cost {fmt_money(main.opportunity_cost, sym)} | min price {fmt_money(main.min_price or 0, sym)}")
+        lines.append(staff_rationale(self.profile, td, blocker))
+        self.store.log(self.b.id, None, "quick_deal", {"text": text[:200], "decision": td.decision}, now)
+        return "\n".join(lines)
+
     # ================================================================== staff actions
+    def confirm(self, cid: str, staff: str, now: datetime) -> list[Outbound]:
+        """The business confirmed (card on file / payment received): holds become bookings."""
+        conv = self.store.get_conversation(cid)
+        if conv is None:
+            return [Outbound("staff", None, f"No conversation {cid}.")]
+        ids = self.store.confirm_holds(cid, now)
+        if not ids:
+            return [Outbound("staff", None, f"Nothing held for {cid}: the hold may have expired. Re-offer first.")]
+        conv.state["status"] = "confirmed"
+        self.store.save_state(cid, conv.state, now)
+        last = self.store.last_sent_offer(cid)
+        p_class = (last or {}).get("offer", {}).get("p_class")
+        self.store.record_outcome(cid, self.b.id, True, now, p_class=p_class, blocker=brief_blocker(conv.state))
+        self.store.log(self.b.id, cid, "booked", {"bookings": ids, "by": staff}, now)
+        text = "You're confirmed! " + (f"See you {offer_when(last)}." if last else "See you soon.")
+        self.store.add_transcript(cid, "agent", text, now)
+        return [Outbound("customer", conv.chat_ref, text), Outbound("staff", None, f"Confirmed {cid}: {', '.join(ids)}")]
+
     def staff_send(self, rid: int, staff: str, now: datetime) -> list[Outbound]:
         r = self.store.review(rid)
         if r is None or not self.store.decide_review(rid, "sent", staff, now, final_text=r["draft"]):
@@ -699,6 +759,14 @@ class Agent:
                            hold_ids=hold_ids, chosen=fig, review_kind="fallback", urgent=True)
         self.store.save_state(conv.id, state, now)
         return res.outbound
+
+
+def offer_when(offer: Optional[dict]) -> str:
+    try:
+        start = datetime.fromisoformat(offer["offer"]["candidate"]["placement"]["start"])
+        return f"on {start:%A} {start.day} {start:%b} at {start:%H:%M}"
+    except (TypeError, KeyError):
+        return "soon"
 
 
 def brief_blocker(state: dict) -> str:

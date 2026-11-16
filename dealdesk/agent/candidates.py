@@ -232,7 +232,7 @@ def build_candidates(profile: BusinessProfile, enq: Enquiry, *, blocker: str, re
     def mk(oid: str, label: str, kind: str, extra: list[ConcessionLine], placement: Optional[Placement] = pl,
            floor: Optional[Decimal] = None, p_class: Optional[str] = None, package: Optional[str] = None,
            facts: Optional[list[str]] = None, conditions: Optional[list[str]] = None) -> Candidate:
-        lines = list(granted_lines)
+        lines = [ConcessionLine(l.perk_id, l.qty) for l in granted_lines]  # copies: never mutate the current offer
         for e in extra:
             existing = next((l for l in lines if l.perk_id == e.perk_id), None)
             if existing:
