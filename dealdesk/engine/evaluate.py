@@ -89,6 +89,8 @@ def compute(profile: BusinessProfile, ctx: DealContext, cand: Candidate) -> Figu
             extra_hours += D(perk.extra_hours) * qty
         elif perk.type == "threshold_reward":
             threshold = max(D(perk.threshold), threshold or ZERO)
+    credit_days = max([cand.terms.credit_days] + [p.credit_days for p, _ in perks])
+    deposit = cand.terms.deposit or any(p.deposit for p, _ in perks)
     fig.has_price_discount = discount > 0
 
     cogs_pct = D(eco.cogs_pct)
@@ -98,10 +100,12 @@ def compute(profile: BusinessProfile, ctx: DealContext, cand: Candidate) -> Figu
     # ---------------------------------------------------------------- revenue
     fees = ZERO
     for fee_id, fee in profile.fees.items():
+        if fee.charged != "always":
+            continue
         if fee.per == "bottle":
             charged = max(0, ctx.byo_bottles - fee_waived.get(fee_id, 0))
             fees += D(fee.amount) * charged
-        elif fee.per == "booking" and cand.placement is not None:
+        elif fee.per == "booking" and (cand.placement is not None or cand.basket):
             fees += D(fee.amount) * (0 if fee_waived.get(fee_id) else 1)
     breakdown: list[tuple[str, Decimal]] = []
     variable = ZERO
@@ -167,22 +171,46 @@ def compute(profile: BusinessProfile, ctx: DealContext, cand: Candidate) -> Figu
         price_quoted = revenue_core
         breakdown.append(("basket revenue", revenue_core))
 
-    # Resource cost to serve (staffing, cleaning, energy) for placements.
+    # Resource cost to serve (staffing, cleaning, energy) and people/machine hours used.
+    service_hours: dict[str, Decimal] = {}
     if cand.placement is not None:
         hours = cand.placement.hours + extra_hours
         for part in cand.placement.parts:
             res = profile.resource(part.resource_id)
             cts = res.cost_to_serve
-            cost = D(cts.per_booking) + D(cts.per_guest) * n + D(cts.per_hour) * hours * part.units
+            if res.kind == "hours":
+                hrs = D(part.hours) if part.hours is not None else cand.placement.hours
+                service_hours[res.id] = service_hours.get(res.id, ZERO) + hrs
+                cost = D(cts.per_booking) + D(cts.per_guest) * n + D(cts.per_hour) * hrs
+            else:
+                cost = D(cts.per_booking) + D(cts.per_guest) * n + D(cts.per_hour) * hours * part.units
             if cost:
                 variable += cost
                 breakdown.append((f"cost to serve {res.label}", -cost))
-            if res.kind == "hours":
-                hrs = D(part.hours) if part.hours is not None else cand.placement.hours
-                o, lines = hours_opportunity(profile, ctx, res, cand.placement.start.date().isoformat(),
-                                             ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][cand.placement.start.weekday()], hrs)
-                fig.opportunity_cost += o
-                fig.displaced += lines
+    for line in cand.basket:
+        prod = profile.product(line.product_id)
+        if prod.resource_id and prod.hours and not (cand.placement and any(p.resource_id == prod.resource_id for p in cand.placement.parts)):
+            service_hours[prod.resource_id] = service_hours.get(prod.resource_id, ZERO) + D(prod.hours) * line.qty
+    for perk, qty in perks:
+        if perk.type == "item" and perk.product_id:
+            prod = profile.product(perk.product_id)
+            if prod.resource_id and prod.hours:
+                service_hours[prod.resource_id] = service_hours.get(prod.resource_id, ZERO) + D(prod.hours) * qty
+    when = cand.placement.start if cand.placement is not None else ctx.now
+    weekday = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][when.weekday()]
+    for rid, hrs in service_hours.items():
+        res = profile.resource(rid)
+        o, lines = hours_opportunity(profile, ctx, res, when.date().isoformat(), weekday, hrs)
+        fig.opportunity_cost += o
+        fig.displaced += lines
+        cap = D(res.hours_capacity_per_day)
+        if cap > 0:
+            booked = D(ctx.calendar.hours_booked.get(f"{rid}:{when.date().isoformat()}", 0))
+            forecast = D(res.forecast_hours_per_day.get(weekday, res.forecast_hours_per_day.get("default", 0)))
+            if (booked + forecast) / cap > D(profile.policy.high_demand.utilisation_above) or \
+                    when.date().isoformat() in ctx.calendar.high_demand:
+                high_demand = True
+    fig.high_demand = high_demand
 
     revenue = revenue_core + fees
     fig.fees = fees
@@ -227,8 +255,8 @@ def compute(profile: BusinessProfile, ctx: DealContext, cand: Candidate) -> Figu
                 return fig
             fig.opportunity_cost += o
             fig.displaced += lines
-    if cand.terms.credit_days:
-        o, lines = cash_opportunity(profile, ctx, revenue, cand.terms.credit_days)
+    if credit_days:
+        o, lines = cash_opportunity(profile, ctx, revenue, credit_days)
         fig.opportunity_cost += o
         fig.displaced += lines
 
@@ -255,7 +283,7 @@ def compute(profile: BusinessProfile, ctx: DealContext, cand: Candidate) -> Figu
         contribution += D(eco.future_value.per_booking)
         breakdown.append(("future value", D(eco.future_value.per_booking)))
     if eco.no_show.enabled and cand.placement is not None:
-        r = D(eco.no_show.rate_with_deposit if cand.terms.deposit else eco.no_show.rate)
+        r = D(eco.no_show.rate_with_deposit if deposit else eco.no_show.rate)
         contribution = (ONE - r) * contribution + r * D(eco.no_show.fee_recovered)
 
     fig.revenue = revenue
@@ -314,8 +342,11 @@ def evaluate_offers(profile: BusinessProfile, ctx: DealContext, candidates: list
         fig = compute(profile, ctx, cand)
         if fig.available:
             if cand.concessions:
+                # Value given up vs the same placement on standard terms. Using incremental
+                # value (C - O) also catches concessions whose cost sits in O: an extension
+                # into a sellable session, scarce or short-dated stock given away.
                 basis = compute(profile, ctx, _basis(cand))
-                fig.concession_cost = max(ZERO, basis.contribution - fig.contribution)
+                fig.concession_cost = max(ZERO, basis.incremental_value - fig.incremental_value)
             fig.cumulative_concession = fig.concession_cost
             fig.p_book, cls = p_book_for(profile, ctx, cand)
             fig.expected_contribution = fig.p_book * fig.contribution + (ONE - fig.p_book) * fig.opportunity_cost

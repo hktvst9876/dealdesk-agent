@@ -1,0 +1,98 @@
+# A drinks wholesaler selling to bars and restaurants.
+# Shows: basket deals, scarce stock carries an opportunity cost, short-dated stock is
+# cheap to give, and payment terms cost money (cost of capital + bad debt).
+
+business:
+  id: harbour_wine
+  name: Harbour Wine Supply
+  kind: wholesale
+  currency: SGD
+  currency_symbol: "S$"
+  timezone: Asia/Singapore
+  staffed_hours: { mon_fri: "08:30-18:00", sat: "09:00-13:00" }
+  tone: "Professional and brief. State the order, the price, the terms and the next step."
+
+products:
+  - { id: house_red_case, label: "case of house red (12)", category: wine, price: 180, unit_cost: 108,
+      on_hand: 200, daily_velocity: 9, days_to_restock: 14 }
+  - { id: premium_gin_case, label: "case of premium gin (6)", category: spirits, price: 420, unit_cost: 280,
+      on_hand: 6, daily_velocity: 1, days_to_restock: 10 }
+  - { id: prosecco_case, label: "case of prosecco (6)", category: wine, price: 160, unit_cost: 90 }
+  - { id: craft_keg_short_date, label: "short-dated craft beer keg", category: beer, price: 210, unit_cost: 120,
+      on_hand: 12, daily_velocity: 0.3, replenishable: false, expiry_days: 20, salvage_value: 40 }
+
+fees:
+  delivery: { amount: 45, per: booking, label: delivery }
+
+economics:
+  cogs_pct: 0
+  cost_of_capital_annual: 0.12
+  bad_debt_rate: 0.01
+
+perks:
+  - id: volume_5
+    label: 5% volume discount
+    type: price_discount
+    discount_pct: 0.05
+    scope: bill
+    eligibility: { min_basket: 1500 }
+    approval: front_line
+    blockers: [price]
+    p_class: price
+    customer_text: "5% off the order"
+  - id: volume_10
+    label: 10% volume discount
+    type: price_discount
+    discount_pct: 0.10
+    scope: bill
+    eligibility: { min_basket: 4000 }
+    approval: manager
+    blockers: [price]
+    p_class: price
+    customer_text: "10% off the order"
+  - id: free_delivery
+    label: Free delivery
+    type: fee_waiver
+    fee_id: delivery
+    approval: front_line
+    blockers: [fee, price]
+    p_class: fee_concession
+    customer_text: "free delivery"
+  - id: keg_on_us
+    label: Short-dated keg on us
+    type: item
+    product_id: craft_keg_short_date
+    eligibility: { min_basket: 2000 }
+    approval: front_line
+    blockers: [price]
+    p_class: perk
+    customer_text: "a craft beer keg on us (best before in 20 days)"
+  - id: credit_14
+    label: 14-day payment terms
+    type: terms
+    credit_days: 14
+    approval: front_line
+    blockers: [process, price]
+    p_class: terms
+    customer_text: "14 days to pay"
+  - id: credit_30
+    label: 30-day payment terms
+    type: terms
+    credit_days: 30
+    approval: manager
+    blockers: [process, price]
+    p_class: terms
+    customer_text: "30 days to pay"
+
+policy:
+  min_contribution: 150
+  concession_cap: 400
+  authority: { front_line: 200, manager: 1000 }
+  p_book_defaults: { standard: 0.50, fee_concession: 0.58, perk: 0.62, price: 0.65, alternative: 0.40, terms: 0.60, clarify: 0.50 }
+
+staff:
+  - { name: Priya, tier: front_line }
+  - { name: Marcus, tier: manager }
+
+placeholders:
+  - "Illustrative wholesaler; replace products, costs and terms with real ones."

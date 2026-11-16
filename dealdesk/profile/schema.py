@@ -190,12 +190,15 @@ class Product(Strict):
     days_to_restock: Decimal = Decimal("7")
     expiry_days: Optional[Decimal] = None
     salvage_value: Decimal = Decimal("0")
+    hours: Optional[Decimal] = None  # services: time this item takes ...
+    resource_id: Optional[str] = None  # ... on this people/machine-hours resource
     estimate: bool = False
 
 
 class Fee(Strict):
     amount: Decimal
     per: Literal["bottle", "booking", "guest", "item", "hour"] = "booking"
+    charged: Literal["always", "on_event"] = "always"  # on_event: e.g. late-cancellation fees
     label: Optional[str] = None
 
 
@@ -271,6 +274,8 @@ class Perk(Strict):
     floor_basis: Optional[Literal["requested"]] = None  # package priced at the requested placement's floor
     extra_hours: Decimal = Decimal("0")
     threshold: Optional[Decimal] = None  # threshold_reward: spend at least this
+    credit_days: int = 0  # terms: pay later
+    deposit: bool = False  # terms: deposit taken (lowers no-show risk)
     availability: Optional[str] = None
     stock_key: Optional[str] = None
     eligibility: Eligibility = Eligibility()
@@ -489,6 +494,11 @@ class BusinessProfile(Strict):
                 priced = set(r.floors) | set(r.prices)
                 if priced and not priced <= (session_types | {"default"}):
                     errors.append(f"resource {r.id}: floors/prices for unknown session types {sorted(priced - session_types)}")
+        for pr in self.products:
+            if pr.resource_id and pr.resource_id not in res_ids:
+                errors.append(f"product {pr.id}: unknown resource {pr.resource_id}")
+            if pr.unit_cost < 0 or pr.price < 0:
+                errors.append(f"product {pr.id}: negative price or cost")
         for perk in self.perks:
             if perk.fee_id and perk.fee_id not in self.fees:
                 errors.append(f"perk {perk.id}: unknown fee {perk.fee_id}")

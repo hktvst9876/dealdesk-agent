@@ -1,0 +1,140 @@
+# A neighbourhood bar & kitchen: on-the-spot deals on food and drinks.
+# Shows: deals that change behaviour (minimum spend + perk) beat bill discounts,
+# perishable stock is almost free to give away, scarce stock is not, and busy
+# nights get perks only. All numbers are illustrative placeholders.
+
+business:
+  id: copper_tap
+  name: The Copper Tap
+  kind: bar
+  currency: SGD
+  currency_symbol: "S$"
+  timezone: Asia/Singapore
+  reply_sla: { staffed_minutes: 10, out_of_hours_minutes: 60 }
+  staffed_hours: { mon_thu: "15:00-24:00", fri_sat: "15:00-02:00", sun: "11:00-22:00" }
+  late_close: "23:59"
+  tone: "Friendly and quick, like a good bartender. One short paragraph, the deal, then how to grab it."
+  house_rules:
+    table_hold: "We hold the table for 15 minutes past your booking time."
+    minimum_spend: "Minimum spends go entirely toward food and drinks."
+
+sessions:
+  - { id: early,       type: weekday_early, days: [mon_thu], start: "16:00", end: "19:00" }
+  - { id: weekday_eve, type: weekday_eve,   days: [mon_thu], start: "19:00", end: "24:00" }
+  - { id: peak,        type: peak,          days: [fri_sat], start: "17:00", end: "late" }
+  - { id: sunday,      type: sunday,        days: [sun],     start: "12:00", end: "22:00" }
+
+inventory:
+  - id: table
+    label: table for 6
+    units: 10
+    guests_per_unit: 6
+    pricing: minimum_spend
+    floors: { weekday_early: 0, weekday_eve: 0, peak: 150, sunday: 0 }
+    regular:
+      mode: matrix
+      contribution: { weekday_early: 40, weekday_eve: 90, peak: 160, sunday: 80 }
+      forecast_utilisation: { weekday_early: 0.25, weekday_eve: 0.45, peak: 0.9, sunday: 0.55 }
+
+products:
+  - { id: craft_ipa_keg_end, label: "pint of the house IPA", category: drink, price: 13, unit_cost: 3.2,
+      on_hand: 30, daily_velocity: 4, replenishable: false, expiry_days: 3, salvage_value: 0 }
+  - { id: dessert_of_day, label: "dessert of the day", category: food, price: 14, unit_cost: 4,
+      on_hand: 12, daily_velocity: 5, replenishable: false, expiry_days: 1, salvage_value: 0 }
+  - { id: sharing_platter, label: "sharing platter", category: food, price: 38, unit_cost: 12 }
+  - { id: prosecco_bottle, label: "bottle of prosecco", category: drink, price: 75, unit_cost: 24,
+      on_hand: 4, daily_velocity: 1.5, replenishable: true, days_to_restock: 6 }
+  - { id: beer_tower, label: "beer tower", category: drink, price: 68, unit_cost: 18 }
+
+economics:
+  cogs_pct: 0.28
+  service_cost_per_guest: 3
+  spend_per_guest: { base: 45, conservative: 35 }
+
+perks:
+  - id: platter_with_minimum
+    label: Sharing platter with a minimum spend
+    type: threshold_reward
+    threshold: 300
+    product_id: sharing_platter
+    eligibility: { min_guests: 5 }
+    approval: front_line
+    blockers: [price, occasion]
+    p_class: perk
+    customer_text: "the sharing platter on us with a S$300 minimum spend for the table"
+  - id: ipa_round
+    label: First round of house IPA
+    type: item
+    product_id: craft_ipa_keg_end
+    displaced_margin: 4          # chance the free pint replaces a paid drink x margin
+    cost_per: guest
+    max_per_booking: 10
+    approval: { front_line: 6, manager: 10 }
+    blockers: [price, occasion]
+    p_class: perk
+    customer_text: "the first round of our house IPA on us"
+  - id: dessert_round
+    label: Dessert of the day for the table
+    type: item
+    product_id: dessert_of_day
+    displaced_margin: 2
+    cost_per: guest
+    max_per_booking: 8
+    approval: { front_line: 8 }
+    blockers: [occasion, price]
+    p_class: perk
+    customer_text: "dessert of the day on the house for everyone"
+  - id: happy_hour_bill
+    label: Happy-hour prices on the whole bill
+    type: price_discount
+    discount_pct: 0.15
+    scope: bill
+    eligibility: { max_utilisation: 0.6 }
+    approval: front_line
+    blockers: [price]
+    p_class: price
+    customer_text: "happy-hour prices (15% off) on the whole bill"
+  - id: prosecco_bottle
+    label: Bottle of prosecco
+    type: item
+    product_id: prosecco_bottle
+    eligibility: { occasions: [birthday, anniversary, celebration, engagement] }
+    approval: manager
+    blockers: [occasion]
+    p_class: perk
+    customer_text: "a bottle of prosecco to celebrate"
+
+policy:
+  min_contribution: 60
+  concession_cap: 80
+  authority: { front_line: 40, manager: 150 }
+  high_demand: { utilisation_above: 0.80, block_price_discounts: true, hold_minutes: 30 }
+  hold: { default_minutes: 60, evening_enquiry_after: "23:00", evening_enquiry_until: "12:00", never_within_hours_of_session: 0.25 }
+  p_resell_matrix: default_deal_policy.csv
+  period_concession_budget: 1500
+  escalation_minutes: 15
+
+callbacks: { default_minutes: 15, if_session_within_hours: { 2: 5 } }
+
+finance:
+  pnl:
+    period: "2026-11"
+    days_in_period: 30
+    days_elapsed: 15
+    revenue_to_date: 38000
+    cogs_to_date: 11400
+    variable_costs_to_date: 3000
+    fixed_costs_period: 48000
+    profit_target_period: 8000
+    concessions_to_date: 600
+    cash_on_hand: 60000
+    monthly_cash_burn: 14000
+    estimate: true
+  bounds: { max_min_contribution_relief_pct: 0.20 }
+
+staff:
+  - { name: Jo, tier: front_line }
+  - { name: Sam, tier: manager }
+
+placeholders:
+  - "Every price, cost, stock level and P&L figure in this profile is illustrative."
